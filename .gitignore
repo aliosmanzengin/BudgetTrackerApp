@@ -68,5 +68,3 @@ dmypy.log
 # Profiling data
 .prof
 .profraw
-
-instance/
