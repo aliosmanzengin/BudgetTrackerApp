@@ -52,7 +52,7 @@ def update_category(category_id):
         return jsonify({'error': 'New category name is required'}), 400  # Return 400 if name is missing
 
     # Find the category by ID
-    category = Category.query.get(category_id)
+    category = db.session.get(Category, category_id)
 
     # If category not found, return an error
     if not category:
@@ -70,7 +70,7 @@ def update_category(category_id):
 @main.route('/categories/<int:category_id>', methods=['DELETE'])
 def delete_category(category_id):
     # Find the category by ID
-    category = Category.query.get(category_id)
+    category = db.session.get(Category, category_id)
 
     # If category not found, return an error
     if not category:
@@ -105,7 +105,7 @@ def create_transaction():
         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.'}), 400
 
     # Check if the category exists
-    if not Category.query.get(category_id):
+    if not db.session.get(Category, category_id):
         return jsonify({'error': 'Category not found'}), 404
 
     # Create the new transaction
@@ -118,7 +118,7 @@ def create_transaction():
         'message': 'Transaction created successfully',
         'transaction': {
             'id': new_transaction.id,
-            'date': new_transaction.date,
+            'date': new_transaction.date.isoformat(),  # Convert back to string format for JSON response
             'amount': new_transaction.amount,
             'category_id': new_transaction.category_id,
             'notes': new_transaction.notes
@@ -132,7 +132,7 @@ def get_transactions():
     transaction_list = [
         {
             'id': txn.id,
-            'date': txn.date,
+            'date': txn.date.isoformat(),  # Convert date to "YYYY-MM-DD" format
             'amount': txn.amount,
             'category': txn.category.name,  # Accessing related category name
             'notes': txn.notes
@@ -146,20 +146,25 @@ def get_transactions():
 def update_transaction(transaction_id):
     # Get JSON data from the request
     data = request.get_json()
-    transaction = Transaction.query.get(transaction_id)
+    transaction = db.session.get(Transaction, transaction_id)
 
     # If transaction not found, return an error
     if not transaction:
         return jsonify({'error': 'Transaction not found'}), 404
 
     # Update fields if provided in the request data
-    transaction.date = data.get('date', transaction.date)
+    # Update fields if provided in the request data
+    if 'date' in data:
+        try:
+            transaction.date = datetime.strptime(data['date'], "%Y-%m-%d").date()
+        except ValueError:
+            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.'}), 400
     transaction.amount = data.get('amount', transaction.amount)
     transaction.category_id = data.get('category_id', transaction.category_id)
     transaction.notes = data.get('notes', transaction.notes)
 
-    # Validate category if category_id was updated
-    if data.get('category_id') and not Category.query.get(transaction.category_id):
+    # Validate category if category_id was updated db.session.get(Category, category_id):
+    if data.get('category_id') and not db.session.get(transaction.category_id):
         return jsonify({'error': 'Category not found'}), 404
 
     db.session.commit()
@@ -169,7 +174,7 @@ def update_transaction(transaction_id):
 
 @main.route('/transactions/<int:transaction_id>', methods=['DELETE'])
 def delete_transaction(transaction_id):
-    transaction = Transaction.query.get(transaction_id)
+    transaction = db.session.get(Transaction, transaction_id)
 
     # If transaction not found, return an error
     if not transaction:

@@ -1,14 +1,14 @@
 # tests/test_transactions.py
+import pytest
 from datetime import datetime
 
-
-def test_create_transaction_with_valid_date(test_client):
-    # Create a category first, as transactions need a valid category_id
+def test_create_transaction_valid_date(test_client):
+    # Create a category first, since transactions need a valid category_id
     test_client.post('/categories', json={'name': 'Entertainment'})
     response = test_client.get('/categories')
     category_id = response.json['categories'][0]['id']
 
-    # Test creating a transaction with a valid date format
+    # Test creating a new transaction with a valid date
     response = test_client.post('/transactions', json={
         'date': '2023-10-31',
         'amount': 50.0,
@@ -17,37 +17,54 @@ def test_create_transaction_with_valid_date(test_client):
     })
     assert response.status_code == 201
     assert response.json['message'] == 'Transaction created successfully'
-    assert response.json['transaction']['date'] == '2023-10-31'  # Check date format in response
+    assert 'transaction' in response.json
+    assert response.json['transaction']['date'] == '2023-10-31'  # Confirm date is in string format
 
 
-def test_create_transaction_with_invalid_date(test_client):
-    # Create a category first, as transactions need a valid category_id
+def test_create_transaction_invalid_date_format(test_client):
+    # Create a category first
     test_client.post('/categories', json={'name': 'Food'})
     response = test_client.get('/categories')
     category_id = response.json['categories'][0]['id']
 
-    # Test creating a transaction with an invalid date format
+    # Test creating a new transaction with an invalid date format
     response = test_client.post('/transactions', json={
-        'date': '31-10-2023',  # Invalid date format
-        'amount': 20.0,
+        'date': '31-10-2023',  # Incorrect format
+        'amount': 25.0,
         'category_id': category_id,
         'notes': 'Lunch'
     })
     assert response.status_code == 400
     assert response.json['error'] == 'Invalid date format. Use YYYY-MM-DD.'
 
+    # Test creating a transaction without a date
+    response = test_client.post('/transactions', json={
+        'amount': 25.0,
+        'category_id': category_id,
+        'notes': 'Lunch'
+    })
+    assert response.status_code == 400
+    assert response.json['error'] == 'Date, amount, and category_id are required fields'
 
-def test_create_transaction_missing_date(test_client):
-    # Create a category first, as transactions need a valid category_id
+
+def test_get_transactions_with_correct_date_format(test_client):
+    # Create a category and a transaction first
     test_client.post('/categories', json={'name': 'Utilities'})
     response = test_client.get('/categories')
     category_id = response.json['categories'][0]['id']
 
-    # Test creating a transaction without a date
-    response = test_client.post('/transactions', json={
+    test_client.post('/transactions', json={
+        'date': '2023-10-31',
         'amount': 100.0,
         'category_id': category_id,
         'notes': 'Electric bill'
     })
-    assert response.status_code == 400
-    assert response.json['error'] == 'Date, amount, and category_id are required fields'
+
+    # Retrieve all transactions and check date format
+    response = test_client.get('/transactions')
+    assert response.status_code == 200
+    for transaction in response.json['transactions']:
+        try:
+            datetime.strptime(transaction['date'], '%Y-%m-%d')  # Validate date format
+        except ValueError:
+            pytest.fail("Transaction date is not in YYYY-MM-DD format")
