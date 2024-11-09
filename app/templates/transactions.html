@@ -32,7 +32,7 @@
     <thead>
         <tr>
             <th>ID</th>
-            <th>Date</th>
+            <th id="date-header" style="cursor: pointer;">Date &#x2195;</th>
             <th>Amount</th>
             <th>Category</th>
             <th>Notes</th>
@@ -57,9 +57,11 @@
     </tbody>
 </table>
 
+<!--<script src="{{ url_for('static', filename='scripts.js') }}"></script>-->
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const form = document.getElementById('transaction-form');
+        let sortDirection = true; // True means ascending, false means descending
 
         form.addEventListener('submit', function (event) {
             event.preventDefault(); // Prevent default form submission
@@ -104,6 +106,26 @@
                 console.error('Error:', error);
                 alert('An error occurred while adding the transaction.');
             });
+        });
+
+        // Sorting functionality for the date column
+        document.getElementById('date-header').addEventListener('click', function () {
+            const tbody = document.getElementById('transactions-body');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            rows.sort((a, b) => {
+                const dateA = new Date(a.cells[1].textContent);
+                const dateB = new Date(b.cells[1].textContent);
+
+                return sortDirection ? dateA - dateB : dateB - dateA;
+            });
+
+            // Clear and re-append sorted rows
+            tbody.innerHTML = '';
+            rows.forEach(row => tbody.appendChild(row));
+
+            // Toggle sort direction for the next click
+            sortDirection = !sortDirection;
         });
     });
 

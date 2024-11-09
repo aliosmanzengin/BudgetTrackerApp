@@ -316,3 +316,50 @@ def home():
     # Option 1: Redirect to categories page
     return render_template('index.html')  # Or use redirect(url_for('main.get_categories_page'))
 
+
+@main.route('/transactions', methods=['GET'])
+def get_transactions() -> tuple:
+    """
+    Retrieve all transactions with optional search and filtering.
+
+    Query Parameters:
+        category_id (int, optional): Filter by category ID.
+        start_date (str, optional): Filter transactions from this date (format: YYYY-MM-DD).
+        end_date (str, optional): Filter transactions up to this date (format: YYYY-MM-DD).
+        min_amount (float, optional): Minimum amount for filtering.
+        max_amount (float, optional): Maximum amount for filtering.
+
+    Returns:
+        tuple: A JSON response with a list of filtered transactions.
+    """
+    category_id = request.args.get('category_id', type=int)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    min_amount = request.args.get('min_amount', type=float)
+    max_amount = request.args.get('max_amount', type=float)
+
+    query = Transaction.query
+
+    if category_id:
+        query = query.filter_by(category_id=category_id)
+    if start_date:
+        query = query.filter(Transaction.date >= datetime.strptime(start_date, '%Y-%m-%d').date())
+    if end_date:
+        query = query.filter(Transaction.date <= datetime.strptime(end_date, '%Y-%m-%d').date())
+    if min_amount is not None:
+        query = query.filter(Transaction.amount >= min_amount)
+    if max_amount is not None:
+        query = query.filter(Transaction.amount <= max_amount)
+
+    transactions = query.all()
+    transaction_list = [
+        {
+            'id': txn.id,
+            'date': txn.date.isoformat(),
+            'amount': txn.amount,
+            'category': txn.category.name,
+            'notes': txn.notes
+        }
+        for txn in transactions
+    ]
+    return jsonify({'transactions': transaction_list}), 200
