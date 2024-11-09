@@ -1,21 +1,20 @@
+<!-- templates/base.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Budget Tracker</title>
+    <title>{{ title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <header>
-        <h1>Budget Tracker</h1>
-        <nav>
-            <a href="{{ url_for('main.get_categories_page') }}">Categories</a>
-            <a href="{{ url_for('main.get_transactions_page') }}">Transactions</a>
-        </nav>
-    </header>
-    <main>
+    <nav>
+        <a href="{{ url_for('main.get_categories_page') }}">Categories</a>
+        <a href="{{ url_for('main.get_transactions_page') }}">Transactions</a>
+    </nav>
+    <div class="container">
         {% block content %}{% endblock %}
-    </main>
+    </div>
 </body>
 </html>

@@ -1,11 +1,26 @@
+# routes.py
 from datetime import datetime
 from typing import Union
 from flask import Blueprint, request, jsonify, render_template, Response
 from .models import Category, Transaction
 from . import db
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 # Create a Blueprint instance
 main = Blueprint('main', __name__)
+
+
+@main.app_errorhandler(404)
+def not_found_error(error) -> tuple:
+    return jsonify({'error': 'Resource not found'}), 404
+
+
+@main.app_errorhandler(500)
+def internal_error(error) -> tuple:
+    logging.error('An internal error occurred: %s', error)
+    return jsonify({'error': 'An internal error occurred'}), 500
 
 
 @main.route('/categories', methods=['POST'])
@@ -19,26 +34,36 @@ def create_category() -> Union[Response, tuple]:
     Returns:
         Union[Response, tuple]: A JSON response with a success message and list of categories, or an error message.
     """
-    data = request.get_json() or request.form  # Handles both JSON and form data
+    logging.info('Received request to create category')
+    data = request.get_json() if request.is_json else request.form
     name = data.get('name')
 
-    # Check if 'name' is provided
     if not name:
+        logging.warning('Category name is missing')
         return jsonify({'error': 'Category name is required'}), 400
 
-    # Check for existing category
     if Category.query.filter_by(name=name).first():
+        logging.warning('Category already exists')
         return jsonify({'error': 'Category already exists'}), 400
 
-    # Add new category
     new_category = Category(name=name)
     db.session.add(new_category)
     db.session.commit()
 
-    # Retrieve all categories
-    categories = Category.query.all()
-    category_list = [{'id': cat.id, 'name': cat.name} for cat in categories]
-    return jsonify({'message': 'Category created successfully', 'categories': category_list}), 201
+    logging.info(f'Category {name} created successfully')
+
+    if request.is_json:
+        return jsonify({
+            'message': 'Category created successfully',
+            'category': {
+                'id': new_category.id,
+                'name': new_category.name
+            }
+        }), 201
+    else:
+        categories = Category.query.all()
+        logging.info('Rendering template for category creation response')
+        return render_template('category_result.html', categories=categories), 200
 
 
 @main.route('/categories', methods=['GET'])
@@ -49,6 +74,7 @@ def get_categories() -> tuple:
     Returns:
         tuple: A JSON response with a list of all categories.
     """
+    logging.info('Retrieving categories')
     limit = request.args.get('limit', 10, type=int)  # Default limit is 10
     offset = request.args.get('offset', 0, type=int)  # Default offset is 0
     categories = Category.query.offset(offset).limit(limit).all()
@@ -67,20 +93,24 @@ def update_category(category_id: int) -> tuple:
     Returns:
         tuple: A JSON response with a success message and updated category or an error message.
     """
+    logging.info(f'Received request to update category with ID {category_id}')
     data = request.get_json()
     new_name = data.get('name')
 
     if not new_name:
+        logging.warning('New category name is required')
         return jsonify({'error': 'New category name is required'}), 400
 
     category = db.session.get(Category, category_id)
 
     if not category:
+        logging.warning('New category name is required')
         return jsonify({'error': 'Category not found'}), 404
 
     category.name = new_name
     db.session.commit()
 
+    logging.info(f'Category with ID {category_id} updated successfully')
     return jsonify(
         {'message': 'Category updated successfully',
          'category': {'category_id': category.id, 'name': category.name}}), 200
@@ -97,23 +127,21 @@ def delete_category(category_id: int) -> tuple:
     Returns:
         tuple: A JSON response with a success message and updated list of categories, or an error message.
     """
+    logging.info(f'Received request to delete category with ID {category_id}')
     category = db.session.get(Category, category_id)
 
-    # If category not found, return an error
     if not category:
+        logging.error('Category not found')
         return jsonify({'error': 'Category not found'}), 404
 
-    # Check for associated transactions
     if category.transactions:  # `category.transactions` uses the backref from the relationship in the models
         return jsonify({
             'error': 'Category cannot be deleted because it has associated transactions.'
         }), 400
 
-    # Delete the category from the database
     db.session.delete(category)
     db.session.commit()
 
-    # Return updated categories list after deletion
     categories = Category.query.all()
     category_list = [{'id': cat.id, 'name': cat.name} for cat in categories]
     return jsonify({'message': 'Category deleted successfully', 'categories': category_list}), 200
@@ -128,50 +156,50 @@ def create_transaction() -> Union[Response, tuple]:
         JSON or form data with 'date', 'amount', 'category_id', and optionally 'notes'.
 
     Returns:
-        Union[Response, tuple]: A JSON response with a success message and created transaction, or an error message.
+        Union[Response, tuple]: A JSON response or rendered template with success information.
     """
-    # Handle both JSON and form data
-    data = request.get_json() or request.form
+    data = request.get_json() if request.is_json else request.form
+
     date_str = data.get('date')
     amount = data.get('amount')
     category_id = data.get('category_id')
     notes = data.get('notes', '')
 
-    # Validate required fields
     if not date_str or not amount or not category_id:
         return jsonify({'error': 'Date, amount, and category_id are required fields'}), 400
 
-    # Convert date string to a Python date object
     try:
         date = datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.'}), 400
 
-    # Validate that the category exists
     if not db.session.get(Category, category_id):
         return jsonify({'error': 'Category not found'}), 404
 
-    # Create the new transaction and add it to the database
-    new_transaction = Transaction(
-        date=date,
-        amount=float(amount),  # Ensure proper type conversion
-        category_id=int(category_id),
-        notes=notes
-    )
+    try:
+        amount = float(amount)
+        if amount <= 0:
+            raise ValueError('Amount must be positive')
+    except ValueError:
+        return jsonify({'error': 'Invalid amount. Must be a positive number'}), 400
+
+    new_transaction = Transaction(date=date, amount=amount, category_id=category_id, notes=notes)
     db.session.add(new_transaction)
     db.session.commit()
 
-    # Return the created transaction
-    return jsonify({
-        'message': 'Transaction created successfully',
-        'transaction': {
-            'id': new_transaction.id,
-            'date': new_transaction.date.isoformat(),
-            'amount': new_transaction.amount,
-            'category_id': new_transaction.category_id,
-            'notes': new_transaction.notes
-        }
-    }), 201
+    if request.is_json:
+        return jsonify({
+            'message': 'Transaction created successfully',
+            'transaction': {
+                'id': new_transaction.id,
+                'date': new_transaction.date.isoformat(),
+                'amount': new_transaction.amount,
+                'category_id': new_transaction.category_id,
+                'notes': new_transaction.notes
+            }
+        }), 201
+    else:
+        return render_template('transaction_result.html', transaction=new_transaction), 200
 
 
 @main.route('/transactions', methods=['GET'])
@@ -276,3 +304,16 @@ def get_transactions_page():
     categories = Category.query.all()
     transactions = Transaction.query.all()
     return render_template('transactions.html', categories=categories, transactions=transactions)
+
+
+@main.route('/')
+def home():
+    """
+    Render the homepage or redirect to categories page.
+
+    Returns:
+        Response: A rendered template or redirect.
+    """
+    # Option 1: Redirect to categories page
+    return render_template('index.html')  # Or use redirect(url_for('main.get_categories_page'))
+

@@ -1,0 +1,16 @@
+<!-- transaction_result.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Transaction Result</title>
+</head>
+<body>
+    <h1>Transaction Created Successfully</h1>
+    <p><strong>Date:</strong> {{ transaction.date }}</p>
+    <p><strong>Amount:</strong> {{ transaction.amount }}</p>
+    <p><strong>Category ID:</strong> {{ transaction.category_id }}</p>
+    <p><strong>Notes:</strong> {{ transaction.notes }}</p>
+    <a href="/transactions-page">Back to Transactions</a>
+</body>
+</html>
