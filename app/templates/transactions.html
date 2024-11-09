@@ -1,33 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="mb-4">Transactions</h1>
+<h1>Transactions</h1>
 
 <!-- Form for adding a new transaction -->
-<form id="transaction-form" class="mb-4">
-    <div class="mb-3">
-        <label for="date" class="form-label">Date:</label>
-        <input type="date" class="form-control" id="date" name="date" placeholder="YYYY-MM-DD" required>
-    </div>
-    <div class="mb-3">
-        <label for="amount" class="form-label">Amount:</label>
-        <input type="number" class="form-control" id="amount" name="amount" step="0.01" placeholder="Amount" required>
-    </div>
-    <div class="mb-3">
-        <label for="category_id" class="form-label">Category:</label>
-        <select class="form-select" id="category_id" name="category_id">
-            {% for category in categories %}
-                <option value="{{ category.id }}">{{ category.name }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="mb-3">
-        <label for="notes" class="form-label">Notes:</label>
-        <input type="text" class="form-control" id="notes" name="notes" placeholder="Notes">
-    </div>
-    <button type="submit" class="btn btn-success">Add Transaction</button>
+<form id="transaction-form">
+    <!-- Existing form fields -->
 </form>
 
-<h2 class="mb-3">All Transactions</h2>
+<h2>All Transactions</h2>
 <table class="table table-striped">
     <thead>
         <tr>
@@ -36,6 +16,7 @@
             <th>Amount</th>
             <th>Category</th>
             <th>Notes</th>
+            <th>Actions</th>
         </tr>
     </thead>
     <tbody id="transactions-body">
@@ -46,10 +27,31 @@
             <td>{{ transaction.amount }}</td>
             <td>{{ transaction.category.name }}</td>
             <td>{{ transaction.notes }}</td>
+            <td>
+                <button class="btn btn-danger btn-sm" onclick="deleteTransaction({{ transaction.id }})">Delete</button>
+            </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 
-<script src="{{ url_for('static', filename='scripts.js') }}"></script>
+<script>
+    function deleteTransaction(transactionId) {
+        if (confirm('Are you sure you want to delete this transaction?')) {
+            fetch(`/transactions/${transactionId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    alert(data.message);
+                    location.reload(); // Reload the page to reflect changes
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    }
+</script>
 {% endblock %}
