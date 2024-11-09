@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Transactions</h2>
+<table>
+    <tr>
+        <th>Date</th>
+        <th>Category</th>
+        <th>Amount</th>
+        <th>Notes</th>
+    </tr>
+    {% for transaction in transactions %}
+        <tr>
+            <td>{{ transaction.date }}</td>
+            <td>{{ transaction.category }}</td>
+            <td>{{ transaction.amount }}</td>
+            <td>{{ transaction.notes }}</td>
+        </tr>
+    {% endfor %}
+</table>
+<form action="{{ url_for('main.create_transaction') }}" method="post">
+    <input type="date" name="date" required>
+    <input type="number" name="amount" placeholder="Amount" required>
+    <input type="text" name="notes" placeholder="Notes">
+    <select name="category_id" required>
+        {% for category in categories %}
+            <option value="{{ category.id }}">{{ category.name }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Add Transaction</button>
+</form>
+{% endblock %}

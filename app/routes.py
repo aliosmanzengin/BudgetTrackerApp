@@ -1,5 +1,6 @@
 from datetime import datetime
-from flask import Blueprint, request, jsonify
+from typing import Union
+from flask import Blueprint, request, jsonify, render_template, Response
 from .models import Category, Transaction
 from . import db
 
@@ -8,29 +9,33 @@ main = Blueprint('main', __name__)
 
 
 @main.route('/categories', methods=['POST'])
-def create_category() -> tuple:
+def create_category() -> Union[Response, tuple]:
     """
     Create a new spending category.
 
     Expects:
-        JSON data with a 'name' field for the category name.
+        JSON or form data with a 'name' field for the category name.
 
     Returns:
-        tuple: A JSON response with a success message and list of categories, or an error message.
+        Union[Response, tuple]: A JSON response with a success message and list of categories, or an error message.
     """
-    data = request.get_json()
+    data = request.get_json() or request.form  # Handles both JSON and form data
     name = data.get('name')
 
+    # Check if 'name' is provided
     if not name:
         return jsonify({'error': 'Category name is required'}), 400
 
+    # Check for existing category
     if Category.query.filter_by(name=name).first():
         return jsonify({'error': 'Category already exists'}), 400
 
+    # Add new category
     new_category = Category(name=name)
     db.session.add(new_category)
     db.session.commit()
 
+    # Retrieve all categories
     categories = Category.query.all()
     category_list = [{'id': cat.id, 'name': cat.name} for cat in categories]
     return jsonify({'message': 'Category created successfully', 'categories': category_list}), 201
@@ -44,7 +49,9 @@ def get_categories() -> tuple:
     Returns:
         tuple: A JSON response with a list of all categories.
     """
-    categories = Category.query.all()
+    limit = request.args.get('limit', 10, type=int)  # Default limit is 10
+    offset = request.args.get('offset', 0, type=int)  # Default offset is 0
+    categories = Category.query.offset(offset).limit(limit).all()
     category_list = [{'id': cat.id, 'name': cat.name} for cat in categories]
     return jsonify({'categories': category_list}), 200
 
@@ -92,49 +99,69 @@ def delete_category(category_id: int) -> tuple:
     """
     category = db.session.get(Category, category_id)
 
+    # If category not found, return an error
     if not category:
         return jsonify({'error': 'Category not found'}), 404
 
+    # Check for associated transactions
+    if category.transactions:  # `category.transactions` uses the backref from the relationship in the models
+        return jsonify({
+            'error': 'Category cannot be deleted because it has associated transactions.'
+        }), 400
+
+    # Delete the category from the database
     db.session.delete(category)
     db.session.commit()
 
+    # Return updated categories list after deletion
     categories = Category.query.all()
     category_list = [{'id': cat.id, 'name': cat.name} for cat in categories]
     return jsonify({'message': 'Category deleted successfully', 'categories': category_list}), 200
 
 
 @main.route('/transactions', methods=['POST'])
-def create_transaction() -> tuple:
+def create_transaction() -> Union[Response, tuple]:
     """
     Create a new transaction.
 
     Expects:
-        JSON data with 'date', 'amount', 'category_id', and optionally 'notes'.
+        JSON or form data with 'date', 'amount', 'category_id', and optionally 'notes'.
 
     Returns:
-        tuple: A JSON response with a success message and created transaction, or an error message.
+        Union[Response, tuple]: A JSON response with a success message and created transaction, or an error message.
     """
-    data = request.get_json()
+    # Handle both JSON and form data
+    data = request.get_json() or request.form
     date_str = data.get('date')
     amount = data.get('amount')
     category_id = data.get('category_id')
     notes = data.get('notes', '')
 
+    # Validate required fields
     if not date_str or not amount or not category_id:
         return jsonify({'error': 'Date, amount, and category_id are required fields'}), 400
 
+    # Convert date string to a Python date object
     try:
         date = datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.'}), 400
 
+    # Validate that the category exists
     if not db.session.get(Category, category_id):
         return jsonify({'error': 'Category not found'}), 404
 
-    new_transaction = Transaction(date=date, amount=amount, category_id=category_id, notes=notes)
+    # Create the new transaction and add it to the database
+    new_transaction = Transaction(
+        date=date,
+        amount=float(amount),  # Ensure proper type conversion
+        category_id=int(category_id),
+        notes=notes
+    )
     db.session.add(new_transaction)
     db.session.commit()
 
+    # Return the created transaction
     return jsonify({
         'message': 'Transaction created successfully',
         'transaction': {
@@ -155,7 +182,9 @@ def get_transactions() -> tuple:
     Returns:
         tuple: A JSON response with a list of all transactions.
     """
-    transactions = Transaction.query.all()
+    limit = request.args.get('limit', 10, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    transactions = Transaction.query.offset(offset).limit(limit).all()
     transaction_list = [
         {
             'id': txn.id,
@@ -223,3 +252,27 @@ def delete_transaction(transaction_id: int) -> tuple:
     db.session.commit()
 
     return jsonify({'message': 'Transaction deleted successfully'}), 200
+
+
+@main.route('/summary', methods=['GET'])
+def get_summary():
+    summary = db.session.query(
+        Category.name,
+        db.func.sum(Transaction.amount).label('total_spent')
+    ).join(Transaction).group_by(Category.name).all()
+
+    summary_data = [{'category': item[0], 'total_spent': item[1]} for item in summary]
+    return jsonify({'summary': summary_data}), 200
+
+
+@main.route('/categories-page', methods=['GET'])
+def get_categories_page():
+    categories = Category.query.all()
+    return render_template('categories.html', categories=categories)
+
+
+@main.route('/transactions-page', methods=['GET'])
+def get_transactions_page():
+    categories = Category.query.all()
+    transactions = Transaction.query.all()
+    return render_template('transactions.html', categories=categories, transactions=transactions)

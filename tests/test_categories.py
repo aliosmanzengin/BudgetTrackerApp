@@ -38,3 +38,26 @@ def test_delete_category(test_client):
     response = test_client.delete(f'/categories/{category_id}')
     assert response.status_code == 200
     assert response.json['message'] == 'Category deleted successfully'
+
+
+def test_get_categories_pagination(test_client):
+    response = test_client.get('/categories?limit=2&offset=0')
+    assert response.status_code == 200
+    assert 'categories' in response.json
+    assert len(response.json['categories']) <= 2  # Check the limit is applied
+
+
+def test_get_transactions_pagination(test_client):
+    response = test_client.get('/transactions?limit=2&offset=0')
+    assert response.status_code == 200
+    assert 'transactions' in response.json
+    assert len(response.json['transactions']) <= 2
+
+
+def test_summary_endpoint(test_client):
+    # Assuming test data is already added in previous tests or via a setup fixture
+    response = test_client.get('/summary')
+    assert response.status_code == 200
+    assert 'summary' in response.json
+    assert isinstance(response.json['summary'], list)
+    # Further assertions can be made based on expected summary data
