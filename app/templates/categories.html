@@ -1,18 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Categories</h1>
-<form action="{{ url_for('main.create_category') }}" method="post">
+<form action="{{ url_for('main.create_category') }}" method="post" class="mb-3">
     <label for="name">Category Name:</label>
-    <input type="text" id="name" name="name" required>
-    <button type="submit">Add Category</button>
+    <input type="text" id="name" name="name" class="form-control" required>
+    <button type="submit" class="btn btn-primary mt-2">Add Category</button>
 </form>
 
 {% if categories %}
-<ul>
+<ul class="list-group">
     {% for category in categories %}
-        <li>
+        <li class="list-group-item d-flex justify-content-between align-items-center">
             {{ category.name }}
-            <button class="btn btn-danger btn-sm" onclick="deleteCategory({{ category.id }})">Delete</button>
+            <button class="btn btn-link text-danger p-0" onclick="deleteCategory({{ category.id }})" title="Delete">
+                &times;
+            </button>
         </li>
     {% endfor %}
 </ul>

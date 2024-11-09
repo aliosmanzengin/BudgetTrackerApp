@@ -3,12 +3,32 @@
 <h1>Transactions</h1>
 
 <!-- Form for adding a new transaction -->
-<form id="transaction-form">
-    <!-- Existing form fields -->
+<form id="transaction-form" class="mb-4">
+    <div class="mb-3">
+        <label for="date" class="form-label">Date:</label>
+        <input type="date" id="date" name="date" class="form-control" placeholder="YYYY-MM-DD" required>
+    </div>
+    <div class="mb-3">
+        <label for="amount" class="form-label">Amount:</label>
+        <input type="number" id="amount" name="amount" class="form-control" step="0.01" placeholder="Amount" required>
+    </div>
+    <div class="mb-3">
+        <label for="category_id" class="form-label">Category:</label>
+        <select id="category_id" name="category_id" class="form-select">
+            {% for category in categories %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="notes" class="form-label">Notes:</label>
+        <input type="text" id="notes" name="notes" class="form-control" placeholder="Notes">
+    </div>
+    <button type="submit" class="btn btn-primary">Add Transaction</button>
 </form>
 
 <h2>All Transactions</h2>
-<table class="table table-striped">
+<table class="table table-hover">
     <thead>
         <tr>
             <th>ID</th>
@@ -28,7 +48,9 @@
             <td>{{ transaction.category.name }}</td>
             <td>{{ transaction.notes }}</td>
             <td>
-                <button class="btn btn-danger btn-sm" onclick="deleteTransaction({{ transaction.id }})">Delete</button>
+                <button class="btn btn-link text-danger p-0" onclick="deleteTransaction({{ transaction.id }})" title="Delete">
+                    &times;
+                </button>
             </td>
         </tr>
         {% endfor %}
@@ -36,6 +58,55 @@
 </table>
 
 <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('transaction-form');
+
+        form.addEventListener('submit', function (event) {
+            event.preventDefault(); // Prevent default form submission
+
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            fetch('/transactions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.error) {
+                    alert(result.error);
+                } else {
+                    // Append the new transaction to the table body
+                    const transactionsBody = document.getElementById('transactions-body');
+                    const newRow = document.createElement('tr');
+                    newRow.innerHTML = `
+                        <td>${result.transaction.id}</td>
+                        <td>${result.transaction.date}</td>
+                        <td>${result.transaction.amount}</td>
+                        <td>${result.transaction.category_id}</td>
+                        <td>${result.transaction.notes}</td>
+                        <td>
+                            <button class="btn btn-link text-danger p-0" onclick="deleteTransaction(${result.transaction.id})" title="Delete">
+                                &times;
+                            </button>
+                        </td>
+                    `;
+                    transactionsBody.appendChild(newRow);
+
+                    alert('Transaction added successfully!');
+                    form.reset(); // Clear the form after successful submission
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while adding the transaction.');
+            });
+        });
+    });
+
     function deleteTransaction(transactionId) {
         if (confirm('Are you sure you want to delete this transaction?')) {
             fetch(`/transactions/${transactionId}`, {

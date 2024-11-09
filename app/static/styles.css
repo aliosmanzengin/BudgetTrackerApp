@@ -22,3 +22,13 @@ th {
 form {
     margin-bottom: 20px;
 }
+.btn-link {
+    font-size: 1.2rem; /* Adjust size as needed */
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.btn-link:hover {
+    color: darkred; /* Change color on hover for better visibility */
+}
