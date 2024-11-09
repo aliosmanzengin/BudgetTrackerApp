@@ -49,7 +49,6 @@ def create_category() -> Union[Response, tuple]:
     new_category = Category(name=name)
     db.session.add(new_category)
     db.session.commit()
-
     logging.info(f'Category {name} created successfully')
 
     if request.is_json:
@@ -63,7 +62,7 @@ def create_category() -> Union[Response, tuple]:
     else:
         categories = Category.query.all()
         logging.info('Rendering template for category creation response')
-        return render_template('category_result.html', categories=categories), 200
+        return render_template('categories.html', categories=categories), 200
 
 
 @main.route('/categories', methods=['GET'])

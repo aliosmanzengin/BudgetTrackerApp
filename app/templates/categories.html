@@ -7,9 +7,15 @@
     <input type="text" id="name" name="name" required>
     <button type="submit">Add Category</button>
 </form>
+
+{% if categories %}
 <ul>
     {% for category in categories %}
         <li>{{ category.name }}</li>
     {% endfor %}
 </ul>
+{% else %}
+<p>No categories found. Add a new category above.</p>
+{% endif %}
+
 {% endblock %}
